@@ -1,0 +1,108 @@
+name: Run Migrations and Sync with ChartDB
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'migrations/**'
+      - 'db/**'
+  pull_request:
+    types: [ opened, synchronize ]
+    paths:
+      - 'migrations/**'
+      - 'db/**'
+
+jobs:
+  migrate-and-sync:
+    runs-on: ubuntu-latest
+    name: Apply Migrations and Update ChartDB
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ${{ secrets.DB_USERNAME }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.DB_DATABASE }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Example with Node.js and Prisma
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run Prisma migrations
+        env:
+          DATABASE_URL: postgresql://${{ secrets.DB_USERNAME }}:${{ secrets.DB_PASSWORD }}@localhost:5432/${{ secrets.DB_DATABASE }}
+        run: |
+          npx prisma migrate deploy
+          npx prisma generate
+      
+      # Alternative: Using Flyway
+      # - name: Run Flyway migrations
+      #   uses: joshuaavalon/flyway-action@v3.0.0
+      #   with:
+      #     url: jdbc:postgresql://localhost:5432/${{ secrets.DB_DATABASE }}
+      #     user: ${{ secrets.DB_USERNAME }}
+      #     password: ${{ secrets.DB_PASSWORD }}
+      #     locations: filesystem:./migrations
+      
+      # Alternative: Using Liquibase
+      # - name: Run Liquibase migrations
+      #   uses: liquibase-github-actions/update@v4.25.1
+      #   with:
+      #     changelogFile: 'db/changelog.xml'
+      #     url: jdbc:postgresql://localhost:5432/${{ secrets.DB_DATABASE }}
+      #     username: ${{ secrets.DB_USERNAME }}
+      #     password: ${{ secrets.DB_PASSWORD }}
+      
+      # Alternative: Using raw SQL migrations
+      # - name: Run SQL migrations
+      #   run: |
+      #     for file in migrations/*.sql; do
+      #       echo "Running migration: $file"
+      #       PGPASSWORD=${{ secrets.DB_PASSWORD }} psql \
+      #         -h localhost \
+      #         -U ${{ secrets.DB_USERNAME }} \
+      #         -d ${{ secrets.DB_DATABASE }} \
+      #         -f "$file"
+      #     done
+      
+      - name: Sync updated schema with ChartDB
+        uses: chartdb/chartdb-action@v1
+        with:
+          db-host: 'localhost'
+          db-port: '5432'
+          db-database: ${{ secrets.DB_DATABASE }}
+          db-username: ${{ secrets.DB_USERNAME }}
+          db-password: ${{ secrets.DB_PASSWORD }}
+          db-type: 'postgresql'
+          chartdb-api-token: ${{ secrets.CHARTDB_API_TOKEN }}
+          chartdb-diagram-id: ${{ secrets.CHARTDB_DIAGRAM_ID }}
+      
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Database migrations applied successfully and ChartDB diagram updated!'
+            })

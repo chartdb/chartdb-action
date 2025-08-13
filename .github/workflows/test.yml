@@ -1,0 +1,127 @@
+name: Test ChartDB Sync Action
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test-postgresql:
+    runs-on: ubuntu-latest
+    name: Test with PostgreSQL
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create test schema
+        run: |
+          PGPASSWORD=testpass psql -h localhost -U testuser -d testdb << EOF
+          CREATE TABLE users (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE TABLE posts (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            title VARCHAR(255) NOT NULL,
+            content TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE INDEX idx_posts_user_id ON posts(user_id);
+          EOF
+
+      - name: Test ChartDB Sync Action
+        uses: ./
+        with:
+          db-host: "localhost"
+          db-port: "5432"
+          db-database: "testdb"
+          db-username: "testuser"
+          db-password: "testpass"
+          db-type: "postgresql"
+          chartdb-api-token: ${{ secrets.CHARTDB_API_TOKEN || 'test_token' }}
+          chartdb-diagram-id: ${{ secrets.CHARTDB_DIAGRAM_ID || 'test_diagram' }}
+
+  test-mysql:
+    runs-on: ubuntu-latest
+    name: Test with MySQL
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: testdb
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: testpass
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 3306:3306
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for MySQL
+        run: |
+          until mysqladmin ping -h 127.0.0.1 --silent; do
+            echo 'Waiting for MySQL...'
+            sleep 2
+          done
+
+      - name: Create test schema
+        run: |
+          mysql -h 127.0.0.1 -u testuser -ptestpass testdb << EOF
+          CREATE TABLE users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE TABLE posts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT,
+            title VARCHAR(255) NOT NULL,
+            content TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            INDEX idx_user_id (user_id)
+          );
+          EOF
+
+      - name: Test ChartDB Sync Action
+        uses: ./
+        with:
+          db-host: "127.0.0.1"
+          db-port: "3306"
+          db-database: "testdb"
+          db-username: "testuser"
+          db-password: "testpass"
+          db-type: "mysql"
+          chartdb-api-token: ${{ secrets.CHARTDB_API_TOKEN || 'test_token' }}
+          chartdb-diagram-id: ${{ secrets.CHARTDB_DIAGRAM_ID || 'test_diagram' }}
