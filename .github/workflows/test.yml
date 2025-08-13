@@ -62,12 +62,8 @@ jobs:
           chartdb-api-token: ${{ secrets.TEST_CHARTDB_API_TOKEN || 'test_token' }}
           chartdb-diagram-id: ${{ secrets.TEST_CHARTDB_DIAGRAM_ID || 'test_diagram' }}
 
-      - name: Check for errors in output
+      - name: Check sync status
+        if: steps.chartdb-sync-postgres.outputs.status == 'failed'
         run: |
-          echo "Checking action output for errors..."
-          if echo "${{ steps.chartdb-sync-postgres.outputs.* }}" | grep -i "error"; then
-            echo "Error found in action output!"
-            exit 1
-          else
-            echo "No errors found in output"
-          fi
+          echo "ChartDB sync failed! Check the logs above."
+          exit 1
