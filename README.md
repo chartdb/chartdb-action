@@ -8,8 +8,8 @@ Automatically sync your database schema with [ChartDB](https://chartdb.io) to ke
 - 📊 Updates ChartDB diagrams in real-time
 - 🔒 Secure handling of credentials via GitHub Secrets
 - 🐳 Docker-based for consistent execution
-- 🗄️ Supports PostgreSQL, MySQL, MariaDB, and MSSQL
-
+- 🗄️ Supports PostgreSQL, MySQL, SQL Server, MariaDB, SQLite, ClickHouse, CockroachDB, and Oracle
+x
 ## Usage
 
 ### Basic Example
@@ -97,7 +97,7 @@ jobs:
 | `db-database` | Database name | Yes | - |
 | `db-username` | Database username | Yes | - |
 | `db-password` | Database password (use secrets!) | No | - |
-| `db-type` | Database type (`postgresql`, `mysql`, `mariadb`, `mssql`) | Yes | - |
+| `db-type` | Database type (`postgresql`, `mysql`, `sql_server`, `sqlite`, `mariadb`, `clickhouse`, `cockroachdb`, `oracle`) | Yes | - |
 | `chartdb-api-token` | ChartDB API token (use secrets!) | Yes | - |
 | `chartdb-diagram-id` | ChartDB diagram ID to sync with | Yes | - |
 | `network` | Docker network mode | No | `host` |
@@ -165,7 +165,7 @@ db-port: '3306'  # default
 
 ### Microsoft SQL Server
 ```yaml
-db-type: 'mssql'
+db-type: 'sql_server'
 db-port: '1433'  # default
 ```
 
