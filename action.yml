@@ -1,0 +1,82 @@
+name: "ChartDB Database Sync"
+description: "Sync your database schema with ChartDB for automatic ER diagram updates"
+author: "ChartDB"
+branding:
+  icon: "database"
+  color: "blue"
+
+inputs:
+  db-host:
+    description: "Database host address"
+    required: true
+  db-port:
+    description: "Database port"
+    required: false
+    default: "5432"
+  db-database:
+    description: "Database name"
+    required: true
+  db-username:
+    description: "Database username"
+    required: true
+  db-password:
+    description: "Database password (use secrets!)"
+    required: false
+  db-type:
+    description: "Database type (postgresql, mysql, mariadb, mssql)"
+    required: true
+  chartdb-api-token:
+    description: "ChartDB API token (use secrets!)"
+    required: true
+  chartdb-diagram-id:
+    description: "ChartDB diagram ID to sync with"
+    required: true
+  network:
+    description: "Docker network mode"
+    required: false
+    default: "host"
+
+outputs:
+  status:
+    description: "Sync status"
+    value: ${{ steps.sync.outputs.status }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Sync with ChartDB
+      id: sync
+      shell: bash
+      run: |
+        echo "Starting ChartDB sync..."
+
+        # Build docker run command
+        DOCKER_CMD="docker run --rm --pull always"
+        DOCKER_CMD="$DOCKER_CMD --name chartdb-syncer-${{ github.run_id }}"
+        DOCKER_CMD="$DOCKER_CMD --network=${{ inputs.network }}"
+        DOCKER_CMD="$DOCKER_CMD -e DB_HOST='${{ inputs.db-host }}'"
+        DOCKER_CMD="$DOCKER_CMD -e DB_PORT='${{ inputs.db-port }}'"
+        DOCKER_CMD="$DOCKER_CMD -e DB_DATABASE='${{ inputs.db-database }}'"
+        DOCKER_CMD="$DOCKER_CMD -e DB_USERNAME='${{ inputs.db-username }}'"
+        DOCKER_CMD="$DOCKER_CMD -e DB_TYPE='${{ inputs.db-type }}'"
+        DOCKER_CMD="$DOCKER_CMD -e CHARTDB_API_TOKEN='${{ inputs.chartdb-api-token }}'"
+        DOCKER_CMD="$DOCKER_CMD -e CHARTDB_DIAGRAM_ID='${{ inputs.chartdb-diagram-id }}'"
+
+        # Add password if provided
+        if [ ! -z "${{ inputs.db-password }}" ]; then
+          DOCKER_CMD="$DOCKER_CMD -e DB_PASSWORD='${{ inputs.db-password }}'"
+        fi
+
+        DOCKER_CMD="$DOCKER_CMD ghcr.io/chartdb/syncer:latest"
+
+        # Execute sync
+        eval $DOCKER_CMD
+
+        if [ $? -eq 0 ]; then
+          echo "ChartDB sync completed successfully!"
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "ChartDB sync failed!"
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi

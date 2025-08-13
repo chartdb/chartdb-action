@@ -1,0 +1,101 @@
+name: Multi-Environment Database Sync
+
+on:
+  push:
+    branches: 
+      - main
+      - staging
+      - develop
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to sync'
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+jobs:
+  sync-development:
+    if: github.ref == 'refs/heads/develop' || github.event.inputs.environment == 'development'
+    runs-on: ubuntu-latest
+    environment: development
+    name: Sync Development Database
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Sync Development DB with ChartDB
+        uses: chartdb/chartdb-action@v1
+        with:
+          db-host: ${{ secrets.DEV_DB_HOST }}
+          db-port: ${{ secrets.DEV_DB_PORT }}
+          db-database: ${{ secrets.DEV_DB_DATABASE }}
+          db-username: ${{ secrets.DEV_DB_USERNAME }}
+          db-password: ${{ secrets.DEV_DB_PASSWORD }}
+          db-type: ${{ secrets.DEV_DB_TYPE }}
+          chartdb-api-token: ${{ secrets.CHARTDB_API_TOKEN }}
+          chartdb-diagram-id: ${{ secrets.DEV_CHARTDB_DIAGRAM_ID }}
+
+  sync-staging:
+    if: github.ref == 'refs/heads/staging' || github.event.inputs.environment == 'staging'
+    runs-on: ubuntu-latest
+    environment: staging
+    name: Sync Staging Database
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Sync Staging DB with ChartDB
+        uses: chartdb/chartdb-action@v1
+        with:
+          db-host: ${{ secrets.STAGING_DB_HOST }}
+          db-port: ${{ secrets.STAGING_DB_PORT }}
+          db-database: ${{ secrets.STAGING_DB_DATABASE }}
+          db-username: ${{ secrets.STAGING_DB_USERNAME }}
+          db-password: ${{ secrets.STAGING_DB_PASSWORD }}
+          db-type: ${{ secrets.STAGING_DB_TYPE }}
+          chartdb-api-token: ${{ secrets.CHARTDB_API_TOKEN }}
+          chartdb-diagram-id: ${{ secrets.STAGING_CHARTDB_DIAGRAM_ID }}
+
+  sync-production:
+    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'production'
+    runs-on: ubuntu-latest
+    environment: production
+    name: Sync Production Database
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Require approval for production
+        uses: trstringer/manual-approval@v1
+        if: github.event_name != 'workflow_dispatch'
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: team-leads,database-admins
+          minimum-approvals: 1
+          issue-title: "Approve ChartDB sync for production"
+          issue-body: "Please approve the ChartDB database sync for production environment"
+      
+      - name: Sync Production DB with ChartDB
+        uses: chartdb/chartdb-action@v1
+        with:
+          db-host: ${{ secrets.PROD_DB_HOST }}
+          db-port: ${{ secrets.PROD_DB_PORT }}
+          db-database: ${{ secrets.PROD_DB_DATABASE }}
+          db-username: ${{ secrets.PROD_DB_USERNAME }}
+          db-password: ${{ secrets.PROD_DB_PASSWORD }}
+          db-type: ${{ secrets.PROD_DB_TYPE }}
+          chartdb-api-token: ${{ secrets.CHARTDB_API_TOKEN }}
+          chartdb-diagram-id: ${{ secrets.PROD_CHARTDB_DIAGRAM_ID }}
+      
+      - name: Create deployment record
+        if: success()
+        run: |
+          echo "ChartDB sync completed for production at $(date)" >> sync-log.txt
+          # You can add additional logging or notification here

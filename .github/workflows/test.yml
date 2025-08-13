@@ -1,0 +1,73 @@
+name: Test ChartDB Sync Action
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test-postgresql:
+    runs-on: ubuntu-latest
+    name: Test with PostgreSQL
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create test schema
+        run: |
+          PGPASSWORD=testpass psql -h localhost -U testuser -d testdb << EOF
+          CREATE TABLE users (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE TABLE posts (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            title VARCHAR(255) NOT NULL,
+            content TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE INDEX idx_posts_user_id ON posts(user_id);
+          EOF
+
+      - name: Test ChartDB Sync Action
+        id: chartdb-sync-postgres
+        uses: ./
+        with:
+          db-host: "localhost"
+          db-port: "5432"
+          db-database: "testdb"
+          db-username: "testuser"
+          db-password: "testpass"
+          db-type: "postgresql"
+          chartdb-api-token: ${{ secrets.TEST_CHARTDB_API_TOKEN || 'test_token' }}
+          chartdb-diagram-id: ${{ secrets.TEST_CHARTDB_DIAGRAM_ID || 'test_diagram' }}
+
+      - name: Check for errors in output
+        run: |
+          echo "Checking action output for errors..."
+          if echo "${{ steps.chartdb-sync-postgres.outputs.* }}" | grep -i "error"; then
+            echo "Error found in action output!"
+            exit 1
+          else
+            echo "No errors found in output"
+          fi

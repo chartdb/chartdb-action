@@ -1,0 +1,47 @@
+name: Sync Database with ChartDB
+
+on:
+  # Trigger on push to main branch
+  push:
+    branches: [ main ]
+  
+  # Trigger on database migration changes
+  push:
+    paths:
+      - 'migrations/**'
+      - 'db/schema/**'
+      - 'database/**'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+  
+  # Schedule daily sync at 2 AM UTC
+  schedule:
+    - cron: '0 2 * * *'
+
+jobs:
+  sync-database:
+    runs-on: ubuntu-latest
+    name: Sync Database Schema to ChartDB
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Sync with ChartDB
+        uses: chartdb/chartdb-action@v1
+        with:
+          db-host: ${{ secrets.DB_HOST }}
+          db-port: ${{ secrets.DB_PORT }}
+          db-database: ${{ secrets.DB_DATABASE }}
+          db-username: ${{ secrets.DB_USERNAME }}
+          db-password: ${{ secrets.DB_PASSWORD }}
+          db-type: 'postgresql'  # or 'mysql', 'mariadb', 'mssql'
+          chartdb-api-token: ${{ secrets.CHARTDB_API_TOKEN }}
+          chartdb-diagram-id: ${{ secrets.CHARTDB_DIAGRAM_ID }}
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "ChartDB sync failed! Please check the logs."
+          # Add your notification logic here (Slack, email, etc.)
