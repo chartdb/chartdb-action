@@ -61,11 +61,7 @@ runs:
         DOCKER_CMD="$DOCKER_CMD -e DB_TYPE='${{ inputs.db-type }}'"
         DOCKER_CMD="$DOCKER_CMD -e CHARTDB_API_TOKEN='${{ inputs.chartdb-api-token }}'"
         DOCKER_CMD="$DOCKER_CMD -e CHARTDB_DIAGRAM_ID='${{ inputs.chartdb-diagram-id }}'"
-
-        # Add password if provided
-        if [ ! -z "${{ inputs.db-password }}" ]; then
-          DOCKER_CMD="$DOCKER_CMD -e DB_PASSWORD='${{ inputs.db-password }}'"
-        fi
+        DOCKER_CMD="$DOCKER_CMD -e DB_PASSWORD='${{ inputs.db-password }}'"
 
         DOCKER_CMD="$DOCKER_CMD ghcr.io/chartdb/syncer:latest"
 

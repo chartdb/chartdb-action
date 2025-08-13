@@ -9,7 +9,7 @@ Automatically sync your database schema with [ChartDB](https://chartdb.io) to ke
 - 🔒 Secure handling of credentials via GitHub Secrets
 - 🐳 Docker-based for consistent execution
 - 🗄️ Supports PostgreSQL, MySQL, SQL Server, MariaDB, SQLite, ClickHouse, CockroachDB, and Oracle
-x
+
 ## Usage
 
 ### Basic Example
