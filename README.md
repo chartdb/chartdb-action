@@ -260,4 +260,3 @@ MIT
 ## Related
 
 - [ChartDB](https://chartdb.io) - Visual database design tool
-- [ChartDB Syncer](https://github.com/chartdb/chartdb-syncer) - Docker image for database synchronization
